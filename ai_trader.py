@@ -1,16 +1,22 @@
 """Minimalist AI trading agent with optional GUI.
 
 This module implements a very small logistic regression model for
-trading on historical price data. It can read prices from a CSV file or
-fetch them via the CoinGecko API. A simple Tkinter interface is included
-for users who prefer a graphical front end. The code is heavily
-commented to aid understanding and is designed for low-powered
-computers.
+trading on historical price data. It can read prices from a CSV file,
+fetch them via the CoinGecko API, или получить котировки с биржи
+Binance. При наличии API‑ключей также можно автоматически размещать
+рыночные ордера. A simple Tkinter interface is included for users who
+prefer a graphical front end. The code is heavily commented to aid
+understanding and is designed for low-powered computers.
 """
 
 import csv
 import json
 from urllib.request import urlopen
+
+try:
+    from binance.client import Client  # type: ignore
+except Exception:  # library not installed
+    Client = None
 import numpy as np
 
 # Tkinter is only imported when running the GUI to keep the
@@ -77,6 +83,15 @@ class TradingAgent:
         prices = [p[1] for p in data.get("prices", [])]
         return np.array(prices, dtype=float)
 
+    def load_binance_prices(self, symbol: str, interval: str = "1d", limit: int = 100) -> np.ndarray:
+        """Download closing prices from Binance."""
+        if Client is None:
+            raise RuntimeError("python-binance not installed")
+        client = Client()
+        klines = client.get_klines(symbol=symbol, interval=interval, limit=limit)
+        closes = [float(k[4]) for k in klines]
+        return np.array(closes)
+
     def load_prices(self, filename: str) -> np.ndarray:
         """Load closing prices from a CSV file."""
         prices = []
@@ -125,6 +140,13 @@ class TradingAgent:
             return "hold"
         pred = self.model.predict(X[-1].reshape(1, -1))[0]
         return "buy" if pred == 1 else "sell"
+
+    def trade_binance(self, api_key: str, api_secret: str, symbol: str, action: str, quantity: float = 1.0) -> None:
+        """Execute a market order on Binance."""
+        if Client is None:
+            raise RuntimeError("python-binance not installed")
+        client = Client(api_key, api_secret)
+        client.create_order(symbol=symbol, side=action.upper(), type="MARKET", quantity=quantity)
 
 
 # ----------------------------------------------------------------------
@@ -206,7 +228,14 @@ if __name__ == "__main__":
     parser.add_argument("--data", help="CSV file with Close prices")
     parser.add_argument("--coin", help="CoinGecko coin id (e.g. bitcoin)")
     parser.add_argument("--days", type=int, default=30, help="Number of days to fetch when using --coin")
+    parser.add_argument("--binance_symbol", help="Trading symbol on Binance, e.g. BTCUSDT")
+    parser.add_argument("--interval", default="1d", help="Kline interval for Binance data")
+    parser.add_argument("--limit", type=int, default=100, help="Number of klines to fetch from Binance")
+    parser.add_argument("--binance_api_key", help="Binance API key")
+    parser.add_argument("--binance_api_secret", help="Binance API secret")
+    parser.add_argument("--quantity", type=float, default=1.0, help="Trade amount for Binance orders")
     parser.add_argument("--lookback", type=int, default=40, help="Number of recent prices to use")
+    parser.add_argument("--trade", action="store_true", help="Execute order on Binance")
     parser.add_argument("--gui", action="store_true", help="Launch graphical interface")
     args = parser.parse_args()
 
@@ -215,16 +244,30 @@ if __name__ == "__main__":
         run_gui()
         raise SystemExit
 
-    if not args.data and not args.coin:
-        parser.error("Provide --data or --coin to load prices")
+    if not args.data and not args.coin and not args.binance_symbol:
+        parser.error("Provide --data, --coin or --binance_symbol to load prices")
 
     agent = TradingAgent()
     if args.data:
         prices = agent.load_prices(args.data)
-    else:
+    elif args.coin:
         prices = agent.load_crypto_prices(args.coin, days=args.days)
+    else:
+        prices = agent.load_binance_prices(args.binance_symbol, interval=args.interval, limit=args.limit)
 
     agent.train_from_prices(prices)
     recent = prices[-args.lookback:]
     action = agent.predict_action(recent)
     print("Next action:", action)
+
+    if args.trade:
+        if not args.binance_api_key or not args.binance_api_secret or not args.binance_symbol:
+            parser.error("Trading requires --binance_symbol, --binance_api_key and --binance_api_secret")
+        agent.trade_binance(
+            args.binance_api_key,
+            args.binance_api_secret,
+            args.binance_symbol,
+            action,
+            quantity=args.quantity,
+        )
+        print("Trade executed on Binance")
