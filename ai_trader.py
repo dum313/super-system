@@ -1,4 +1,6 @@
 import csv
+import json
+from urllib.request import urlopen
 import numpy as np
 
 class LogisticRegression:
@@ -35,6 +37,21 @@ class TradingAgent:
     def __init__(self, learning_rate=0.01, n_iters=1000):
         self.model = LogisticRegression(learning_rate, n_iters)
 
+    def load_crypto_prices(self, coin_id, vs_currency='usd', days=30):
+        url = (
+            f'https://api.coingecko.com/api/v3/coins/{coin_id}/market_chart?'
+            f'vs_currency={vs_currency}&days={days}'
+        )
+        with urlopen(url) as resp:
+            data = json.load(resp)
+        prices = [p[1] for p in data.get('prices', [])]
+        return np.array(prices, dtype=float)
+
+    def train_from_prices(self, prices):
+        X = self._build_features(prices)
+        y = self._build_labels(prices)[-len(X):]
+        self.model.fit(X, y)
+
     def load_prices(self, filename):
         prices = []
         with open(filename, 'r') as f:
@@ -67,9 +84,7 @@ class TradingAgent:
 
     def train(self, csv_file):
         prices = self.load_prices(csv_file)
-        X = self._build_features(prices)
-        y = self._build_labels(prices)[-len(X):]
-        self.model.fit(X, y)
+        self.train_from_prices(prices)
 
     def predict_action(self, recent_prices):
         X = self._build_features(recent_prices)
@@ -81,13 +96,23 @@ class TradingAgent:
 if __name__ == "__main__":
     import argparse
     parser = argparse.ArgumentParser(description="Simple AI trading agent")
-    parser.add_argument('--data', required=True, help='CSV file with Close prices')
-    parser.add_argument('--lookback', type=int, default=40, help='Number of recent prices to use')
+    parser.add_argument('--data', help='CSV file with Close prices')
+    parser.add_argument('--coin', help='CoinGecko coin id (e.g. bitcoin)')
+    parser.add_argument('--days', type=int, default=30,
+                        help='Number of days to fetch when using --coin')
+    parser.add_argument('--lookback', type=int, default=40,
+                        help='Number of recent prices to use')
     args = parser.parse_args()
 
+    if not args.data and not args.coin:
+        parser.error('Provide --data or --coin to load prices')
+
     agent = TradingAgent()
-    agent.train(args.data)
-    prices = agent.load_prices(args.data)
+    if args.data:
+        prices = agent.load_prices(args.data)
+    else:
+        prices = agent.load_crypto_prices(args.coin, days=args.days)
+    agent.train_from_prices(prices)
     recent = prices[-args.lookback:]
     action = agent.predict_action(recent)
     print('Next action:', action)
