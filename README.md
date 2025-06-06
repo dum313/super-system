@@ -1,3 +1,4 @@
+
 # super-system
 
 Этот репозиторий содержит пример торгового бота для Binance. Теперь код
@@ -9,6 +10,7 @@
 ## Настройка окружения
 
 1. Установите Python 3.12.9 (подойдёт и любой Python 3.8+).
+
 2. Создайте и активируйте виртуальное окружение в каталоге проекта:
    ```bash
    python -m venv .venv
@@ -22,6 +24,7 @@
    pip install python-binance pandas scikit-learn numpy
    ```
 4. Создайте API ключи Binance и задайте переменные окружения:
+
    ```bash
    export BINANCE_API_KEY="ваш_ключ"
    export BINANCE_API_SECRET="ваш_секрет"
