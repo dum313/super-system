@@ -10,11 +10,21 @@
 ## Настройка окружения
 
 1. Установите Python 3.12.9 (подойдёт и любой Python 3.8+).
-2. Установите зависимости:
+
+2. Создайте и активируйте виртуальное окружение в каталоге проекта:
+   ```bash
+   python -m venv .venv
+   # Linux/macOS
+   source .venv/bin/activate
+   # Windows
+   .venv\Scripts\activate
+   ```
+3. Установите зависимости внутри окружения:
    ```bash
    pip install python-binance pandas scikit-learn numpy
    ```
-3. Создайте API ключи Binance и задайте переменные окружения:
+4. Создайте API ключи Binance и задайте переменные окружения:
+
    ```bash
    export BINANCE_API_KEY="ваш_ключ"
    export BINANCE_API_SECRET="ваш_секрет"
