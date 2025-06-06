@@ -6,6 +6,8 @@ from sklearn.linear_model import LinearRegression  # модель для про�
 import pandas as pd  # работа с данными
 import logging  # вывод в лог
 
+from .database import log_trade  # сохранение информации о сделках
+
 
 def trade(
     client: Client,
@@ -28,6 +30,7 @@ def trade(
             quantity=0.001,
         )  # тестовый ордер на покупку
         action = f"Покупаем по {last_price:.2f}, ожидание {predicted_price:.2f}"  # сообщение о покупке
+        log_trade(symbol, "BUY", last_price, predicted_price)  # сохраняем в БД
         logging.info(action)
     elif predicted_price < last_price * sell_thr:  # ожидается падение цены
         client.create_test_order(
@@ -37,8 +40,10 @@ def trade(
             quantity=0.001,
         )  # тестовый ордер на продажу
         action = f"Продаем по {last_price:.2f}, ожидание {predicted_price:.2f}"  # сообщение о продаже
+        log_trade(symbol, "SELL", last_price, predicted_price)  # сохраняем в БД
         logging.info(action)
     else:
         action = f"Нет действия. Цена {last_price:.2f}, ожидание {predicted_price:.2f}"  # остаёмся в позиции
+        log_trade(symbol, "HOLD", last_price, predicted_price)  # фиксируем бездействие
         logging.info(action)
     return action  # возвращаем описание совершённого действия

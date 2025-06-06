@@ -16,6 +16,8 @@
    python -m venv .venv
    # Linux/macOS
    source .venv/bin/activate
+История совершённых действий записывается в базу `trades.db`, которую можно
+открыть любым клиентом SQLite для анализа.
    # Windows
    .venv\Scripts\activate
    ```
