@@ -1,0 +1,5 @@
+symbol: BTCUSDT
+interval: KLINE_INTERVAL_1HOUR
+lookback_hours: 100
+buy_threshold: 1.002
+sell_threshold: 0.998
